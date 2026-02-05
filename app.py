@@ -29,22 +29,26 @@ HTML = """
 """
 
 def buscar_carrefour(q):
-    url = f"https://www.carrefour.com.ar/search?text={q.replace(' ','%20')}"
-    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+    url = f"https://www.carrefour.com.ar/search?text={q.replace(' ', '%20')}"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept-Language": "es-AR,es;q=0.9",
+        "Accept": "text/html,application/xhtml+xml"
+    }
+
+    r = requests.get(url, headers=headers, timeout=10)
     soup = BeautifulSoup(r.text, "html.parser")
 
     resultados = []
 
-    productos = soup.select("article")  # todos los productos
-
-    for prod in productos:
-        nombre = prod.select_one(".product-name")
-        precio = prod.select_one(".product-sales-price")
+    for prod in soup.find_all("article"):
+        nombre = prod.find("h2")
+        precio = prod.find("span", {"class": "valtech-carrefourar-product-price-0-x-currencyContainer"})
 
         if nombre and precio:
-            resultados.append(
-                f"{nombre.text.strip()} — {precio.text.strip()}"
-            )
+            texto_precio = precio.get_text(strip=True)
+            resultados.append(f"{nombre.get_text(strip=True)} — {texto_precio}")
 
     return resultados
 
@@ -61,3 +65,4 @@ def home():
 if __name__ == "__main__":
 
     app.run()
+
