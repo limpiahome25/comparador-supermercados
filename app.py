@@ -1,9 +1,8 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, render_template, request
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 import time
 
 app = Flask(__name__)
@@ -120,5 +119,6 @@ def home():
 # =========================
 if __name__ == "__main__":
     app.run()
+
 
 
