@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.service import Service
 import time
 
 app = Flask(__name__)
@@ -44,7 +45,10 @@ def iniciar_driver():
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.binary_location = "/usr/bin/chromium"
 
+    service = Service("/usr/bin/chromedriver")
+
     driver = webdriver.Chrome(
+        service=service,
         options=chrome_options
     )
     return driver
@@ -116,4 +120,5 @@ def home():
 # =========================
 if __name__ == "__main__":
     app.run()
+
 
