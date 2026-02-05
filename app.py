@@ -52,17 +52,68 @@ def buscar_carrefour(q):
 
     return resultados
 
+def buscar_lagallega(q):
+    url = f"https://www.lagallega.com.ar/buscar?search={q.replace(' ', '+')}"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    r = requests.get(url, headers=headers, timeout=10)
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    resultados = []
+
+    productos = soup.select(".product-item")
+
+    for p in productos:
+        nombre = p.select_one(".product-title")
+        precio = p.select_one(".price")
+
+        if nombre and precio:
+            resultados.append(
+                f"{nombre.get_text(strip=True)} — {precio.get_text(strip=True)}"
+            )
+
+    return resultados
+
+def buscar_coto(q):
+    url = f"https://www.cotodigital.com.ar/sitios/cdigi/nuevositio/buscar?Ntt={q.replace(' ', '%20')}"
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    r = requests.get(url, headers=headers, timeout=10)
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    resultados = []
+
+    productos = soup.select(".product_info_container")
+
+    for p in productos:
+        nombre = p.select_one(".product_name")
+        precio = p.select_one(".atg_store_newPrice")
+
+        if nombre and precio:
+            resultados.append(
+                f"{nombre.get_text(strip=True)} — {precio.get_text(strip=True)}"
+            )
+
+    return resultados
+
 @app.route("/")
 def home():
     q = request.args.get("q")
     data = {}
+
     if q:
-        data["Carrefour"] = buscar_carrefour(q)
-        data["La Gallega"] = ["(pendiente de ajuste)"]
-        data["Coto"] = ["(pendiente de ajuste)"]
+        data["La Gallega"] = buscar_lagallega(q)
+        data["Coto"] = buscar_coto(q)
+        data["Carrefour"] = ["(no disponible por el momento)"]
+
     return render_template_string(HTML, data=data)
 
 if __name__ == "__main__":
 
     app.run()
+
 
