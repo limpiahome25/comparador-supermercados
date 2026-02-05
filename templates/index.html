@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Comparador de precios</title>
+</head>
+<body>
+    <h1>Comparador de precios - LIMPIAHOME -</h1>
+
+    <form method="get">
+        <input type="text" name="q" placeholder="Ej: cif crema">
+        <button type="submit">Buscar</button>
+    </form>
+
+    {% for super, productos in data.items() %}
+        <h2>{{ super }}</h2>
+
+        {% if productos %}
+            <ul>
+            {% for p in productos %}
+                <li>{{ p.nombre }} - {{ p.precio }}</li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>No se encontraron resultados</p>
+        {% endif %}
+    {% endfor %}
+</body>
+</html>
