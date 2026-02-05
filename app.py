@@ -11,7 +11,7 @@ app = Flask(__name__)
 # HTML SIMPLE
 # =========================
 HTML = """
-<h2>Comparador de precios</h2>
+<h2>Comparador de precios - LIMPIAHOME</h2>
 
 <form method="get">
   <input name="q" placeholder="Ej: cif crema" value="{{ request.args.get('q','') }}">
@@ -42,9 +42,9 @@ def iniciar_driver():
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.binary_location = "/usr/bin/chromium"
 
     driver = webdriver.Chrome(
-        ChromeDriverManager().install(),
         options=chrome_options
     )
     return driver
@@ -116,3 +116,4 @@ def home():
 # =========================
 if __name__ == "__main__":
     app.run()
+
