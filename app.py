@@ -1,105 +1,105 @@
 from flask import Flask, request, render_template_string
-import requests
-from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
+import time
 
 app = Flask(__name__)
 
+# =========================
+# HTML SIMPLE
+# =========================
 HTML = """
 <h2>Comparador de precios</h2>
 
 <form method="get">
-<input name="q" placeholder="Ej: cif crema" value="{{ request.args.get('q','') }}">
-<button>Buscar</button>
+  <input name="q" placeholder="Ej: cif crema" value="{{ request.args.get('q','') }}">
+  <button>Buscar</button>
 </form>
 
 {% for super, items in data.items() %}
-<h3>{{ super }}</h3>
+  <h3>{{ super }}</h3>
 
-{% if items %}
-<ul>
-{% for i in items %}
-<li>{{ i }}</li>
-{% endfor %}
-</ul>
-{% else %}
-<p>No se encontraron resultados</p>
-{% endif %}
+  {% if items %}
+    <ul>
+    {% for i in items %}
+      <li>{{ i }}</li>
+    {% endfor %}
+    </ul>
+  {% else %}
+    <p>No se encontraron resultados</p>
+  {% endif %}
 
 {% endfor %}
 """
 
-def buscar_carrefour(q):
-    url = f"https://www.carrefour.com.ar/search?text={q.replace(' ', '%20')}"
+# =========================
+# SELENIUM DRIVER
+# =========================
+def iniciar_driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "Accept-Language": "es-AR,es;q=0.9",
-        "Accept": "text/html,application/xhtml+xml"
-    }
+    driver = webdriver.Chrome(
+        ChromeDriverManager().install(),
+        options=chrome_options
+    )
+    return driver
 
-    r = requests.get(url, headers=headers, timeout=10)
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    resultados = []
-
-    for prod in soup.find_all("article"):
-        nombre = prod.find("h2")
-        precio = prod.find("span", {"class": "valtech-carrefourar-product-price-0-x-currencyContainer"})
-
-        if nombre and precio:
-            texto_precio = precio.get_text(strip=True)
-            resultados.append(f"{nombre.get_text(strip=True)} — {texto_precio}")
-
-    return resultados
-
+# =========================
+# LA GALLEGA
+# =========================
 def buscar_lagallega(q):
+    driver = iniciar_driver()
     url = f"https://www.lagallega.com.ar/buscar?search={q.replace(' ', '+')}"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    driver.get(url)
 
-    r = requests.get(url, headers=headers, timeout=10)
-    soup = BeautifulSoup(r.text, "html.parser")
+    time.sleep(6)  # esperar JS
 
     resultados = []
-
-    productos = soup.select(".product-item")
+    productos = driver.find_elements(By.CLASS_NAME, "product-item")
 
     for p in productos:
-        nombre = p.select_one(".product-title")
-        precio = p.select_one(".price")
+        try:
+            nombre = p.find_element(By.CLASS_NAME, "product-title").text
+            precio = p.find_element(By.CLASS_NAME, "price").text
+            resultados.append(f"{nombre} — {precio}")
+        except:
+            pass
 
-        if nombre and precio:
-            resultados.append(
-                f"{nombre.get_text(strip=True)} — {precio.get_text(strip=True)}"
-            )
-
+    driver.quit()
     return resultados
 
+# =========================
+# COTO
+# =========================
 def buscar_coto(q):
+    driver = iniciar_driver()
     url = f"https://www.cotodigital.com.ar/sitios/cdigi/nuevositio/buscar?Ntt={q.replace(' ', '%20')}"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    driver.get(url)
 
-    r = requests.get(url, headers=headers, timeout=10)
-    soup = BeautifulSoup(r.text, "html.parser")
+    time.sleep(7)  # esperar JS
 
     resultados = []
-
-    productos = soup.select(".product_info_container")
+    productos = driver.find_elements(By.CLASS_NAME, "product_info_container")
 
     for p in productos:
-        nombre = p.select_one(".product_name")
-        precio = p.select_one(".atg_store_newPrice")
+        try:
+            nombre = p.find_element(By.CLASS_NAME, "product_name").text
+            precio = p.find_element(By.CLASS_NAME, "atg_store_newPrice").text
+            resultados.append(f"{nombre} — {precio}")
+        except:
+            pass
 
-        if nombre and precio:
-            resultados.append(
-                f"{nombre.get_text(strip=True)} — {precio.get_text(strip=True)}"
-            )
-
+    driver.quit()
     return resultados
 
+# =========================
+# ROUTE PRINCIPAL
+# =========================
 @app.route("/")
 def home():
     q = request.args.get("q")
@@ -108,12 +108,11 @@ def home():
     if q:
         data["La Gallega"] = buscar_lagallega(q)
         data["Coto"] = buscar_coto(q)
-        data["Carrefour"] = ["(no disponible por el momento)"]
 
     return render_template_string(HTML, data=data)
 
+# =========================
+# RUN LOCAL (Render usa gunicorn)
+# =========================
 if __name__ == "__main__":
-
     app.run()
-
-
