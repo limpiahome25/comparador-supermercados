@@ -4,39 +4,13 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 import time
+import shutil
 
 app = Flask(__name__)
 
-# =========================
-# HTML SIMPLE
-# =========================
-HTML = """
-<h2>Comparador de precios - LIMPIAHOME</h2>
-
-<form method="get">
-  <input name="q" placeholder="Ej: cif crema" value="{{ request.args.get('q','') }}">
-  <button>Buscar</button>
-</form>
-
-{% for super, items in data.items() %}
-  <h3>{{ super }}</h3>
-
-  {% if items %}
-    <ul>
-    {% for i in items %}
-      <li>{{ i }}</li>
-    {% endfor %}
-    </ul>
-  {% else %}
-    <p>No se encontraron resultados</p>
-  {% endif %}
-
-{% endfor %}
-"""
-
-# =========================
-# SELENIUM DRIVER
-# =========================
+# -----------------------------
+# DRIVER SELENIUM (RENDER SAFE)
+# -----------------------------
 def iniciar_driver():
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -44,7 +18,11 @@ def iniciar_driver():
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.binary_location = "/usr/bin/chromium"
 
-    service = Service("/usr/bin/chromedriver")
+    chromedriver_path = shutil.which("chromedriver")
+    if not chromedriver_path:
+        raise RuntimeError("chromedriver no encontrado")
+
+    service = Service(chromedriver_path)
 
     driver = webdriver.Chrome(
         service=service,
@@ -52,58 +30,73 @@ def iniciar_driver():
     )
     return driver
 
-# =========================
+
+# -----------------------------
 # LA GALLEGA
-# =========================
-def buscar_lagallega(q):
-    driver = iniciar_driver()
-    url = f"https://www.lagallega.com.ar/buscar?search={q.replace(' ', '+')}"
-    driver.get(url)
-
-    time.sleep(6)  # esperar JS
-
+# -----------------------------
+def buscar_lagallega(query):
     resultados = []
-    productos = driver.find_elements(By.CLASS_NAME, "product-item")
+    driver = iniciar_driver()
 
-    for p in productos:
-        try:
-            nombre = p.find_element(By.CLASS_NAME, "product-title").text
-            precio = p.find_element(By.CLASS_NAME, "price").text
-            resultados.append(f"{nombre} — {precio}")
-        except:
-            pass
+    try:
+        url = f"https://www.lagallega.com.ar/buscar?q={query.replace(' ', '+')}"
+        driver.get(url)
+        time.sleep(4)
 
-    driver.quit()
+        productos = driver.find_elements(By.CSS_SELECTOR, ".product-item")
+
+        for p in productos:
+            try:
+                nombre = p.find_element(By.CSS_SELECTOR, ".product-item-name").text
+                precio = p.find_element(By.CSS_SELECTOR, ".price").text
+                resultados.append({
+                    "nombre": nombre,
+                    "precio": precio
+                })
+            except:
+                continue
+
+    finally:
+        driver.quit()
+
     return resultados
 
-# =========================
+
+# -----------------------------
 # COTO
-# =========================
-def buscar_coto(q):
-    driver = iniciar_driver()
-    url = f"https://www.cotodigital.com.ar/sitios/cdigi/nuevositio/buscar?Ntt={q.replace(' ', '%20')}"
-    driver.get(url)
-
-    time.sleep(7)  # esperar JS
-
+# -----------------------------
+def buscar_coto(query):
     resultados = []
-    productos = driver.find_elements(By.CLASS_NAME, "product_info_container")
+    driver = iniciar_driver()
 
-    for p in productos:
-        try:
-            nombre = p.find_element(By.CLASS_NAME, "product_name").text
-            precio = p.find_element(By.CLASS_NAME, "atg_store_newPrice").text
-            resultados.append(f"{nombre} — {precio}")
-        except:
-            pass
+    try:
+        url = f"https://www.cotodigital.com.ar/sitios/cdigi/browse?q={query.replace(' ', '%20')}"
+        driver.get(url)
+        time.sleep(4)
 
-    driver.quit()
+        productos = driver.find_elements(By.CSS_SELECTOR, ".product-card")
+
+        for p in productos:
+            try:
+                nombre = p.find_element(By.CSS_SELECTOR, ".product-card__name").text
+                precio = p.find_element(By.CSS_SELECTOR, ".product-card__price").text
+                resultados.append({
+                    "nombre": nombre,
+                    "precio": precio
+                })
+            except:
+                continue
+
+    finally:
+        driver.quit()
+
     return resultados
 
-# =========================
-# ROUTE PRINCIPAL
-# =========================
-@app.route("/")
+
+# -----------------------------
+# HOME
+# -----------------------------
+@app.route("/", methods=["GET"])
 def home():
     q = request.args.get("q")
     data = {}
@@ -112,13 +105,11 @@ def home():
         data["La Gallega"] = buscar_lagallega(q)
         data["Coto"] = buscar_coto(q)
 
-    return render_template_string(HTML, data=data)
+    return render_template("index.html", data=data)
 
-# =========================
-# RUN LOCAL (Render usa gunicorn)
-# =========================
+
+# -----------------------------
+# MAIN (solo local)
+# -----------------------------
 if __name__ == "__main__":
-    app.run()
-
-
-
+    app.run(debug=True)
